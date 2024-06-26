@@ -63,17 +63,22 @@ class MGNTrainer:
             split="train",
             num_samples=cfg.num_training_samples,
             num_workers=cfg.num_dataset_workers,
-        )
+        ) # a list of DGL.graph
 
-        # instantiate validation dataset
-        rank_zero_logger.info("Loading the validation dataset...")
-        self.validation_dataset = AhmedBodyDataset(
-            name="ahmed_body_validation",
-            data_dir=to_absolute_path(cfg.data_dir),
-            split="validation",
-            num_samples=cfg.num_validation_samples,
-            num_workers=cfg.num_dataset_workers,
-        )
+
+        # Generate multi mesh graphs
+        from multi_mesh_save_and_load import cal_multi_mesh_all
+        cal_multi_mesh_all(self.dataset,to_absolute_path(cfg.multi_mesh_data_dir),"train",cfg.mesh_layer)
+
+        # # instantiate validation dataset
+        # rank_zero_logger.info("Loading the validation dataset...")
+        # self.validation_dataset = AhmedBodyDataset(
+        #     name="ahmed_body_validation",
+        #     data_dir=to_absolute_path(cfg.data_dir),
+        #     split="validation",
+        #     num_samples=cfg.num_validation_samples,
+        #     num_workers=cfg.num_dataset_workers,
+        # )
 
         # instantiate dataloader
         self.dataloader = GraphDataLoader(
@@ -86,16 +91,23 @@ class MGNTrainer:
             num_workers=cfg.num_dataloader_workers,
         )
 
-        # instantiate validation dataloader
-        self.validation_dataloader = GraphDataLoader(
-            self.validation_dataset,
-            batch_size=cfg.batch_size,
-            shuffle=False,
-            drop_last=True,
-            pin_memory=True,
-            use_ddp=False,
-            num_workers=cfg.num_dataloader_workers,
-        )
+        for (each_graph, each_graph_id) in self.dataset:
+            print(each_graph)
+            print(each_graph_id)
+
+
+
+
+        # # instantiate validation dataloader
+        # self.validation_dataloader = GraphDataLoader(
+        #     self.validation_dataset,
+        #     batch_size=cfg.batch_size,
+        #     shuffle=False,
+        #     drop_last=True,
+        #     pin_memory=True,
+        #     use_ddp=False,
+        #     num_workers=cfg.num_dataloader_workers,
+        # )
 
         # instantiate the model
         self.model = MeshGraphNet(
@@ -111,6 +123,8 @@ class MGNTrainer:
             num_processor_checkpoint_segments=cfg.num_processor_checkpoint_segments,
             recompute_activation=cfg.recompute_activation,
         )
+
+
         if cfg.jit:
             if not self.model.meta.jit:
                 raise ValueError("MeshGraphNet is not yet JIT-compatible.")
