@@ -54,9 +54,19 @@ def cal_multi_mesh_all(graphData,savedir,split,num_layer):
 
 
    
-def load_multi_mesh_batch(mmfile):
-    # loading        
-    m_mesh = pickle.load(open(mmfile, 'rb'))
-    m_gs, m_flat_es, m_ids = m_mesh['m_gs'], m_mesh['m_flat_es'], m_mesh['m_ids']
+def load_multi_mesh_batch(graph_id_list,savedir,split,num_layer):
+    # loading
+    dir_name = savedir+"/"+split
+    mesh_list = []
+    # handling batch_size = 1
+    if not isinstance(graph_id_list, list):
+        graph_id_list = [graph_id_list]
+    for graph_id in graph_id_list:
+        graph_id = int(graph_id)
+        mmfile = os.path.join(dir_name, str(graph_id) + '_mmesh_layer_' + str(num_layer) + '.pkl')
+        m_mesh = pickle.load(open(mmfile, 'rb'))
+        mesh_list.append(m_mesh)
+        #m_gs, m_flat_es, m_ids = m_mesh['m_gs'], m_mesh['m_flat_es'], m_mesh['m_ids']
+    return mesh_list
     # TODO: batching
 
