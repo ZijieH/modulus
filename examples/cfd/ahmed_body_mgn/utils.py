@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
 import torch
 
 
@@ -71,3 +72,59 @@ def relative_lp_error(pred, y, p=2):
         .numpy()
     )
     return error * 100
+
+
+
+def degree(index: torch.Tensor, num_nodes: Optional[int] = None,
+           dtype: Optional[torch.dtype] = None) -> torch.Tensor:
+    r"""Computes the (unweighted) degree of a given one-dimensional index
+    tensor.
+
+    Args:
+        index (LongTensor): Index tensor.
+        num_nodes (int, optional): The number of nodes, *i.e.*
+            :obj:`max_val + 1` of :attr:`index`. (default: :obj:`None`)
+        dtype (:obj:`torch.dtype`, optional): The desired data type of the
+            returned tensor.
+
+    :rtype: :class:`Tensor`
+
+    Example:
+        >>> row = torch.tensor([0, 1, 0, 2, 0])
+        >>> degree(row, dtype=torch.long)
+        tensor([3, 1, 1])
+    """
+    N = torch.max(index) + 1
+    N = int(N)
+    out = torch.zeros((N, ), dtype=dtype, device=index.device)
+    one = torch.ones((index.size(0), ), dtype=out.dtype, device=out.device)
+    return out.scatter_add_(0, index, one)
+
+
+def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
+    if dim < 0:
+        dim = other.dim() + dim
+    if src.dim() == 1:
+        for _ in range(0, dim):
+            src = src.unsqueeze(0)
+    for _ in range(src.dim(), other.dim()):
+        src = src.unsqueeze(-1)
+    src = src.expand(other.size())
+    return src
+
+def scatter_sum(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
+                out: Optional[torch.Tensor] = None,
+                dim_size: Optional[int] = None) -> torch.Tensor:
+    index = broadcast(index, src, dim)
+    if out is None:
+        size = list(src.size())
+        if dim_size is not None:
+            size[dim] = dim_size
+        elif index.numel() == 0:
+            size[dim] = 0
+        else:
+            size[dim] = int(index.max()) + 1
+        out = torch.zeros(size, dtype=src.dtype, device=src.device)
+        return out.scatter_add_(dim, index, src)
+    else:
+        return out.scatter_add_(dim, index, src)
