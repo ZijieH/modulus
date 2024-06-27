@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch
 from ops import GMP, Unpool, WeightedEdgeConv
 # NOTE for zijie
 # you may need to translate the PYG code into modulus style

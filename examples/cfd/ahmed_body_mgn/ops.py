@@ -1,16 +1,15 @@
 import torch
 import torch.nn as nn
-from torch_geometric.utils import degree
-from torch.nn import Sequential as Seq, Linear, ReLU, LayerNorm
-from torch_geometric.nn import MessagePassing
-from torch_scatter import scatter
+from utils import degree,scatter_sum
+# from torch_geometric.nn import MessagePassing
+# from torch_scatter import scatter
 from modulus.models.gnn_layers.mesh_graph_mlp import MeshGraphMLP
 
 # NOTE for zijie
 # you may need to translate the PYG code into modulus style
 
 
-class GMP(MessagePassing):
+class GMP(nn.Module):
     """The copied Graph Message Passing (GMP) block from BSMS GNN."""
 
     def __init__(self, latent_dim, hidden_layer, pos_dim):
@@ -26,7 +25,7 @@ class GMP(MessagePassing):
         pos_dim : int
             Dimension of the positional encoding.
         """
-        super().__init__(aggr="add")
+        super(GMP, self).__init__()
         self.mlp_node = MeshGraphMLP(
             2 * latent_dim, latent_dim, latent_dim, hidden_layer
         )
@@ -83,7 +82,7 @@ class GMP(MessagePassing):
         dir = pi - pj  # (B, N, pos_dim) or (N, pos_dim)
         norm = torch.norm(dir, dim=-1, keepdim=True)  # (B, N, 1) or (N, 1)
         fiber = torch.cat([dir, norm], dim=-1)  # (B, N, pos_dim+1) or (N, pos_dim+1)
-        # below is the cat between fiver and node latent features
+        # below is the cat between fiber and node latent features
         if len(x.shape) == 3 and len(pos.shape) == 2:
             tmp = torch.cat([fiber.unsqueeze(0).repeat(B, 1, 1), x_i, x_j], dim=-1)
         else:
@@ -91,20 +90,20 @@ class GMP(MessagePassing):
         # get the information flow on the edge
         edge_embedding = self.mlp_edge(tmp)
         # sum the edge information to the in node
-        aggr_out = scatter(
-            edge_embedding, j, dim=-2, dim_size=x.shape[-2], reduce="sum"
-        )
+        aggr_out = scatter_sum(
+            edge_embedding, j, dim=-2, dim_size=x.shape[-2])
 
         # MLP take input as the cat between x and the aggregated edge information flow
         tmp = torch.cat([x, aggr_out], dim=-1)
         return self.mlp_node(tmp) + x
 
 
-class WeightedEdgeConv(MessagePassing):
+class WeightedEdgeConv(nn.Module):
     """Weighted Edge Convolution layer for transition between layers."""
 
-    def __init__(self):
-        super().__init__(aggr="add")
+    def __init__(self, *args):
+        super(WeightedEdgeConv, self).__init__()
+
 
     def forward(self, x, g, ew, aggragating=True):
         """
@@ -137,8 +136,8 @@ class WeightedEdgeConv(MessagePassing):
 
         weighted_info *= ew.unsqueeze(-1)
         target_index = j if aggragating else i
-        aggr_out = scatter(
-            weighted_info, target_index, dim=-2, dim_size=x.shape[-2], reduce="sum"
+        aggr_out = scatter_sum(
+            weighted_info, target_index, dim=-2, dim_size=x.shape[-2]
         )
 
         return aggr_out
@@ -166,7 +165,7 @@ class WeightedEdgeConv(MessagePassing):
         w_to_send = normed_w[i]
         eps = 1e-12
         aggr_w = (
-            scatter(w_to_send, j, dim=-1, dim_size=normed_w.size(0), reduce="sum") + eps
+            scatter_sum(w_to_send, j, dim=-1, dim_size=normed_w.size(0)) + eps
         )
         ec = w_to_send / aggr_w[j]
 

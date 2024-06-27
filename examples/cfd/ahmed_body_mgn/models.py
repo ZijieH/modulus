@@ -24,9 +24,9 @@ from modulus.models.gnn_layers.mesh_edge_block import MeshEdgeBlock
 from modulus.models.gnn_layers.mesh_graph_mlp import MeshGraphMLP
 from modulus.models.gnn_layers.mesh_node_block import MeshNodeBlock
 from modulus.models.gnn_layers.utils import CuGraphCSC, set_checkpoint_fn
-from modulus.models.layers import get_activation
 from modulus.models.meta import ModelMetaData
 from modulus.models.module import Module
+from modulus.models.layers import get_activation
 
 
 
@@ -94,10 +94,11 @@ class BiStrideMeshGraph(Module):
         input_dim_nodes: int,
         input_dim_edges: int,
         output_dim: int,
-        latent_dim: int,
-        pos_dim: int,
-        num_u_net: int,
-        num_mesh_level: int,
+        latent_dim: int = 64,
+        pos_dim: int = 3,
+        num_u_net: int = 2,
+        num_mesh_level: int = 2,
+        mlp_activation_fn: Union[str, List[str]] = "relu",
         num_layers_node_processor: int = 2,
         num_layers_edge_processor: int = 2,
         hidden_dim_processor: int = 128,
@@ -112,8 +113,10 @@ class BiStrideMeshGraph(Module):
         num_processor_checkpoint_segments: int = 0,
         recompute_activation: bool = False,
     ):
+        super().__init__(meta=MetaData())
         self.u_net_times = num_u_net
-        activation_fn = nn.ReLU
+        # activation_fn = nn.ReLU
+        activation_fn = get_activation(mlp_activation_fn)
         hidden_dim_processor=hidden_dim_node_encoder=hidden_dim_edge_encoder=latent_dim
 
         self.edge_encoder = MeshGraphMLP(
@@ -136,7 +139,7 @@ class BiStrideMeshGraph(Module):
             recompute_activation=recompute_activation,
         )
 
-        self.BS_process = BSGMP(l_n=num_mesh_level, ld=latent_dim, hidden_layer=2, pos_dim=pos_dim, MP_model=GMP)
+        self.BS_process = BSGMP(unet_depth=num_mesh_level, latent_dim=latent_dim, hidden_layer=2, pos_dim=pos_dim)
 
         self.first_layer_processor = MeshGraphNetProcessor(
             processor_size=2,
@@ -172,12 +175,15 @@ class BiStrideMeshGraph(Module):
         x = self.node_decoder(x)
         return x
 
-    def forward(self, m_idx, m_gs, node_in,graph):
-        # get mat pos and type
+    def forward(self, mesh_dicts,graph):
         node_pos=graph.ndata["pos"] #[num_nodes,d=2 or d=3]
-        node_in = graph.ndata["x"]  #[num_nodes, d1]
+        mesh_dict = mesh_dicts[0]
+        m_flat_es, m_idx = mesh_dict['m_flat_es'], mesh_dict['m_ids'] # these are still numpy
+        # convert to tensor
+        m_flat_es = [torch.LongTensor(tmp).to(node_pos.device) for tmp in m_flat_es]
+
         # infer: encode->MP->decode->time integrate to update states
-        out = self._EMD(node_in, m_idx, m_gs, node_pos,graph)
+        out = self._EMD(m_idx, m_flat_es, node_pos,graph)
         return out
 
 
