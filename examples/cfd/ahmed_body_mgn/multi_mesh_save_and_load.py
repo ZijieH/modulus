@@ -10,7 +10,7 @@ def cal_multi_mesh_all(graphData,savedir,split,num_layer):
     """
     Precompute the multi-mesh graphs for each input mesh, and save as .pkl.
     """
-    dir_name = savedir+"/"+split
+    dir_name = savedir+"/"+ str(num_layer) + "/"+split
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
         print(f"No precomputed multi-mesh for '{split}', computing and saving now!")
@@ -56,7 +56,7 @@ def cal_multi_mesh_all(graphData,savedir,split,num_layer):
    
 def load_multi_mesh_batch(graph_id_list,savedir,split,num_layer):
     # loading
-    dir_name = savedir+"/"+split
+    dir_name = savedir+"/"+ str(num_layer) + "/"+split
     mesh_list = []
     # handling batch_size = 1
     if not isinstance(graph_id_list, list):

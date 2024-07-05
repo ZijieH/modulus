@@ -1,12 +1,7 @@
 import torch
 import torch.nn as nn
 from utils import degree,scatter_sum
-# from torch_geometric.nn import MessagePassing
-# from torch_scatter import scatter
 from modulus.models.gnn_layers.mesh_graph_mlp import MeshGraphMLP
-
-# NOTE for zijie
-# you may need to translate the PYG code into modulus style
 
 
 class GMP(nn.Module):
@@ -70,7 +65,7 @@ class GMP(nn.Module):
         else:
             raise NotImplementedError("Only implemented for dim 2 and 3")
 
-        # NOTE for zijie
+        
         #      Here is the biggest difference between BSMS's GMP and that of meshgraphnet.
         #      in meshgraphnet, the edge information is 1)initialized using fiber=(dir, norm)
         #      2) then it follows the MP times of MLP_edge, using the same graph connectivity

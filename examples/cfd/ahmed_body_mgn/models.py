@@ -96,7 +96,7 @@ class BiStrideMeshGraph(Module):
         output_dim: int,
         latent_dim: int = 64,
         pos_dim: int = 3,
-        num_u_net: int = 2,
+        num_u_net: int = 1,
         num_mesh_level: int = 2,
         mlp_activation_fn: Union[str, List[str]] = "relu",
         num_layers_node_processor: int = 2,
@@ -142,7 +142,7 @@ class BiStrideMeshGraph(Module):
         self.BS_process = BSGMP(unet_depth=num_mesh_level, latent_dim=latent_dim, hidden_layer=2, pos_dim=pos_dim)
 
         self.first_layer_processor = MeshGraphNetProcessor(
-            processor_size=2,
+            processor_size=4,
             input_dim_node=hidden_dim_processor,
             input_dim_edge=hidden_dim_processor,
             num_layers_node=num_layers_node_processor,

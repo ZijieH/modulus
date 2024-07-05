@@ -29,7 +29,8 @@ from torch.nn.parallel import DistributedDataParallel
 
 import wandb
 
-from modulus.datapipes.gnn.ahmed_body_dataset import AhmedBodyDataset
+# from modulus.datapipes.gnn.ahmed_body_dataset import AhmedBodyDataset
+from ahmed_body_dataset import AhmedBodyDataset
 from modulus.distributed.manager import DistributedManager
 from modulus.launch.logging import (
     PythonLogger,
@@ -58,6 +59,7 @@ class MGNTrainer:
             )
             mlp_act = "silu"
 
+        ### Training data
         # instantiate dataset
         rank_zero_logger.info("Loading the training dataset...")
         self.dataset = AhmedBodyDataset(
@@ -80,6 +82,54 @@ class MGNTrainer:
             drop_last=True,
             pin_memory=True,
             use_ddp=self.dist.world_size > 1,
+            num_workers=cfg.num_dataloader_workers,
+        )
+
+        ### Validation data
+        rank_zero_logger.info("Loading the validation dataset...")
+        self.validation_dataset = AhmedBodyDataset(
+            name="ahmed_body_validation",
+            data_dir=to_absolute_path(cfg.data_dir),
+            split="val",
+            num_samples=cfg.num_validation_samples,
+            num_workers=cfg.num_dataset_workers,
+        )
+
+        # Generate multi mesh graphs
+        cal_multi_mesh_all(self.validation_dataset,to_absolute_path(cfg.multi_mesh_data_dir),"val",cfg.mesh_layer)
+
+        # instantiate dataloader
+        self.validation_dataloader = GraphDataLoader(
+            self.validation_dataset,
+            batch_size=cfg.batch_size,
+            shuffle=False,
+            drop_last=True,
+            pin_memory=True,
+            use_ddp=False,
+            num_workers=cfg.num_dataloader_workers,
+        )
+
+        ### Testing data
+        rank_zero_logger.info("Loading the test dataset...")
+        self.test_dataset = AhmedBodyDataset(
+            name="ahmed_body_testing",
+            data_dir=to_absolute_path(cfg.data_dir),
+            split="test",
+            num_samples=cfg.num_test_samples,
+            num_workers=cfg.num_dataset_workers,
+        )
+
+        # Generate multi mesh graphs
+        cal_multi_mesh_all(self.test_dataset,to_absolute_path(cfg.multi_mesh_data_dir),"test",cfg.mesh_layer)
+
+        # instantiate dataloader
+        self.test_dataloader = GraphDataLoader(
+            self.test_dataset,
+            batch_size=cfg.batch_size,
+            shuffle=False,
+            drop_last=True,
+            pin_memory=True,
+            use_ddp=False,
             num_workers=cfg.num_dataloader_workers,
         )
 
@@ -189,11 +239,12 @@ class MGNTrainer:
             return param_group["lr"]
 
     @torch.no_grad()
-    def validation(self):
+    def validation(self,cfg):
         error = 0
-        for graph in self.validation_dataloader:
+        for (graph,graph_id) in self.validation_dataloader:
             graph = graph.to(self.dist.device)
-            pred = self.model(graph.ndata["x"], graph.edata["x"], graph)
+            mesh_dicts = load_multi_mesh_batch(graph_id,to_absolute_path(cfg.multi_mesh_data_dir),"val",cfg.mesh_layer)
+            pred = self.model(mesh_dicts, graph)
             pred, gt = self.dataset.denormalize(
                 pred, graph.ndata["y"], self.dist.device
             )
@@ -206,8 +257,27 @@ class MGNTrainer:
         wandb.log({"val_error (%)": error})
         self.rank_zero_logger.info(f"Denormalized validation error (%): {error}")
 
+    @torch.no_grad()
+    def testing(self,cfg):
+        error = 0
+        for (graph,graph_id) in self.test_dataloader:
+            graph = graph.to(self.dist.device)
+            mesh_dicts = load_multi_mesh_batch(graph_id,to_absolute_path(cfg.multi_mesh_data_dir),"test",cfg.mesh_layer)
+            pred = self.model(mesh_dicts, graph)
+            pred, gt = self.dataset.denormalize(
+                pred, graph.ndata["y"], self.dist.device
+            )
+            error += (
+                torch.mean(torch.norm(pred - gt, p=2) / torch.norm(gt, p=2))
+                .cpu()
+                .numpy()
+            )
+        error = error / len(self.test_dataloader) * 100
+        wandb.log({"test_error (%)": error})
+        self.rank_zero_logger.info(f"Denormalized testing error (%): {error}")
 
-@hydra.main(version_base="1.3", config_path="conf", config_name="config")
+
+@hydra.main(version_base="1.3", config_path="conf", config_name="config_BSMS")
 def main(cfg: DictConfig) -> None:
     # initialize distributed manager
     DistributedManager.initialize()
@@ -245,9 +315,10 @@ def main(cfg: DictConfig) -> None:
         )
         wandb.log({"loss": loss_agg})
 
-        # # validation
-        # if dist.rank == 0:
-        #     trainer.validation()
+        # validation
+        if dist.rank == 0:
+            trainer.validation(cfg)
+            trainer.testing(cfg)
 
         # save checkpoint
         if dist.world_size > 1:

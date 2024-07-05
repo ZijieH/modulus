@@ -1,11 +1,5 @@
 import torch.nn as nn
 from ops import GMP, Unpool, WeightedEdgeConv
-# NOTE for zijie
-# you may need to translate the PYG code into modulus style
-from bsms_graph_wrapper import BistrideMultiLayerGraph
-import numpy as np
-import torch
-
 
 class BSGMP(nn.Module):
     """Bistride Graph Message Passing (BSGMP) network for hierarchical graph processing."""
@@ -107,33 +101,3 @@ class BSGMP(nn.Module):
             h = h.add(down_outs[depth_idx])
 
         return h
-
-if __name__ == "__main__":
-    # Example flat edge list
-    flat_edges = np.array([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]])
-    flat_edges = np.concatenate((flat_edges, flat_edges[::-1]), axis=1)
-    num_nodes = 11
-    unet_depth = 2
-    pos_mesh_x = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    pos_mesh_y = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    pos_mesh_z = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    pos_mesh = np.vstack((pos_mesh_x, pos_mesh_y, pos_mesh_z)).T
-
-    # Initialize BistrideMultiLayerGraph
-    multi_layer_graph = BistrideMultiLayerGraph(flat_edges, unet_depth, num_nodes, pos_mesh)
-
-    # Get multi-layer graphs
-    m_gs, m_flat_es, m_ids = multi_layer_graph.get_multi_layer_graphs()
-
-    # Initialize BSGMP
-    model = BSGMP(unet_depth, 128, 3, 3)
-    # init input node features
-    h = torch.ones(num_nodes, 128)
-    # to tensor
-    m_ids = [torch.tensor(m_id, dtype=torch.long) for m_id in m_ids]
-    m_flat_es = [torch.tensor(m_e, dtype=torch.long) for m_e in m_flat_es]
-    pos_mesh = torch.tensor(pos_mesh, dtype=torch.float)
-    # one pass
-    h = model(h, m_ids, m_flat_es, pos_mesh)
-
-    print(h)
