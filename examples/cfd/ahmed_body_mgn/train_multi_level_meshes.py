@@ -139,6 +139,7 @@ class MGNTrainer:
             cfg.input_dim_edges,
             cfg.output_dim,
             aggregation=cfg.aggregation,
+            num_mesh_level = cfg.mesh_layer,
             hidden_dim_node_encoder=cfg.hidden_dim_node_encoder,
             hidden_dim_edge_encoder=cfg.hidden_dim_edge_encoder,
             hidden_dim_node_decoder=cfg.hidden_dim_node_decoder,
@@ -282,6 +283,9 @@ def main(cfg: DictConfig) -> None:
     # initialize distributed manager
     DistributedManager.initialize()
     dist = DistributedManager()
+
+    # augment ckpt path 
+    cfg.ckpt_path = cfg.ckpt_path + "_layer_" + str(cfg.mesh_layer)
 
     # initialize loggers
     initialize_wandb(

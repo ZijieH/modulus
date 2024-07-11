@@ -18,12 +18,11 @@ def cal_multi_mesh_all(graphData,savedir,split,num_layer):
         for (each_graph,each_graph_id) in tqdm(graphData):
             mmfile = os.path.join(dir_name, str(each_graph_id) + '_mmesh_layer_' + str(num_layer) + '.pkl')
             flatten_edges = torch.cat((each_graph.edges()[0].view(1,-1),each_graph.edges()[1].view(1,-1)),dim=0).numpy() #[2,num_edges]
-            num_l=2
             n=each_graph.num_nodes()
             pos_mesh = each_graph.ndata["pos"].numpy()
 
             # Initialize BistrideMultiLayerGraph
-            multi_layer_graph = BistrideMultiLayerGraph(flatten_edges, num_l, n, pos_mesh)
+            multi_layer_graph = BistrideMultiLayerGraph(flatten_edges, num_layer, n, pos_mesh)
             # Get multi-layer graphs
             m_gs, m_flat_es, m_ids = multi_layer_graph.get_multi_layer_graphs()
             # Save
@@ -40,12 +39,11 @@ def cal_multi_mesh_all(graphData,savedir,split,num_layer):
         for (each_graph,each_graph_id) in tqdm(graphData):
             mmfile = os.path.join(dir_name, str(each_graph_id) + '_mmesh_layer_' + str(num_layer) + '.pkl')
             flatten_edges = torch.cat((each_graph.edges()[0].view(1,-1),each_graph.edges()[1].view(1,-1)),dim=0).numpy() #[2,num_edges]
-            num_l=2
             n=each_graph.num_nodes()
             pos_mesh = each_graph.ndata["pos"].numpy()
 
             # Initialize BistrideMultiLayerGraph
-            multi_layer_graph = BistrideMultiLayerGraph(flatten_edges, num_l, n, pos_mesh)
+            multi_layer_graph = BistrideMultiLayerGraph(flatten_edges, num_layer, n, pos_mesh)
             # Get multi-layer graphs
             m_gs, m_flat_es, m_ids = multi_layer_graph.get_multi_layer_graphs()
             # Save
