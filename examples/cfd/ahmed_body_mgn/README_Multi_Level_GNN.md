@@ -16,10 +16,15 @@ This part is handled with `multi_mesh_save_and_load.py`, which mainly depends on
 ### Transition and Message passing across levels.
 This part is wrapped into `models.py`. This is a similar class as MeshGraphNet, with the only difference in that there is a `BS_process`. It iteratively (with for loop) computes the output node features for each level, and do downsampling, upsampling. The basic operations for level transitions are defined in `ops.py`
 
+## Current Results
+- The original MeshGraphNets: test error is 21.48797219246626%. (19 sec per epoch)
+- BSMS-layer=4: test error is ls 16.936930902302265%. (82 sec per epoch)
+- BSMS-layer=6: test error is ls 12.11720959842205%. (95 sec per epoch)
 ## Some problems to be fixed
 
 - The current implementation only works for `batch_size = 1`.
 - The orginal meshgraphnet generats denormalized testing error for 21.48797219246626 with 500 epochs. It has a mismatch with the one reported on the current github inference folder.
+- When the number of level increases to 8, there seems to be some error. There may need some check towards the multi-level meshes generation process, to see if at some point, the deepest level contains no node, etc.
 
 
 ## Getting Started
